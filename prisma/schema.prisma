@@ -1,0 +1,139 @@
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String?
+  googleId      String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  spotifyAuth   SpotifyIntegration?
+  analytics     AnalyticsEvent[]
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  displayName     String
+  tagline         String?  // e.g., "Philosophy • Discipline • Better Self"
+  quote           String?  // e.g., "A better you, builds a greater tomorrow."
+  bio             String?
+  avatarUrl       String?
+  bannerUrl       String?
+  customDomain    String?  @unique
+  isPublic        Boolean  @default(true)
+  passwordHash    String?  // For optional password-protected pages
+  
+  // Liquid Glass & Theme Configuration
+  themePreset     String   @default("liquid-dark") // liquid-dark, minimal, anime, oled, light
+  accentColor     String   @default("#38bdf8")
+  bgType          String   @default("image") // image, gradient, solid, particles
+  bgValue         String   @default("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80")
+  glassBlur       Int      @default(20)      // px
+  glassOpacity    Float    @default(0.45)    // 0.1 to 0.9
+  enableParticles Boolean  @default(true)
+  enableMusic     Boolean  @default(true)
+  enableSocials   Boolean  @default(true)
+  
+  // Layout & Ordering (JSON array of section IDs)
+  sectionOrder    Json     @default("[\"links\", \"spotify\", \"gallery\", \"blog\"]")
+
+  links           LinkItem[]
+  socials         SocialLink[]
+  galleryItems    GalleryItem[]
+  blogPosts       BlogPost[]
+  
+  updatedAt       DateTime @updatedAt
+}
+
+model SocialLink {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  platform  String  // instagram, youtube, spotify, x, telegram, discord, github, email
+  url       String
+  handle    String?
+  sortOrder Int     @default(0)
+}
+
+model LinkItem {
+  id          String    @id @default(cuid())
+  profileId   String
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title       String
+  subtitle    String?
+  url         String
+  icon        String    @default("link")
+  thumbnail   String?
+  isFeatured  Boolean   @default(false)
+  isVisible   Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  clicks      Int       @default(0)
+  scheduledAt DateTime?
+  expiresAt   DateTime?
+}
+
+model GalleryItem {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title     String
+  category  String  @default("Photos") // Photos, Wallpapers, Videos, Art
+  mediaUrl  String
+  allowDownload Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  category    String   @default("Philosophy") // Quotes, Philosophy, Life, Updates
+  excerpt     String?
+  content     String   @db.Text
+  coverImage  String?
+  publishedAt DateTime @default(now())
+  isPublished Boolean  @default(true)
+}
+
+model SpotifyIntegration {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifyUserId     String?
+  accessToken       String?  @db.Text
+  refreshToken      String?  @db.Text
+  tokenExpiresAt    DateTime?
+  showLiveListening Boolean  @default(true)
+  featuredTrackUri  String?  // Fallback or pinned track ID (e.g., "1A2B3C...")
+  playlistsJson     Json?    // Cached user-selected playlists
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType String   // "page_view", "link_click", "spotify_play"
+  targetId  String?  // Link ID or section name
+  referrer  String?
+  device    String?  // "mobile", "desktop", "tablet"
+  country   String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
